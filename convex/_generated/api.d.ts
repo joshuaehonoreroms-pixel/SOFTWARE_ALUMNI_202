@@ -8,6 +8,9 @@
  * @module
  */
 
+import type * as alumni from "../alumni.js";
+import type * as users from "../users.js";
+
 import type {
   ApiFromModules,
   FilterApi,
@@ -15,8 +18,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  alumni: typeof import("../alumni");
-  users: typeof import("../users");
+  alumni: typeof alumni;
+  users: typeof users;
 }>;
 
 /**

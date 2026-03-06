@@ -1,0 +1,7 @@
+packages:
+  - './'
+onlyBuiltDependencies:
+  - '@clerk/shared'
+  - browser-tabs-lock
+  - esbuild
+  - sharp

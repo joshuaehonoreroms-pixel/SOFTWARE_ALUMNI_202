@@ -1,10 +1,47 @@
+"use client"
+
+import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useSignIn } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const { isLoaded, signIn, setActive } = useSignIn()
+  const [email, setEmail] = React.useState("")
+  const [password, setPassword] = React.useState("")
+  const [error, setError] = React.useState<string | null>(null)
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isLoaded) return
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const result = await signIn.create({
+        identifier: email,
+        password: password,
+      })
+
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId })
+        router.push("/dashboard")
+      } else {
+        console.log(result)
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || "Invalid email or password")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left Side - Form */}
@@ -20,14 +57,18 @@ export default function LoginPage() {
           <h1 className="text-4xl font-bold tracking-tight mb-2">Welcome Back.</h1>
           <p className="text-muted-foreground mb-12">Log in to the software engineering network collective.</p>
 
-          <form className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="name@university.edu"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="bg-card border-border h-12 focus-visible:ring-primary"
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -37,10 +78,19 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" className="bg-card border-border h-12 focus-visible:ring-primary" />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="bg-card border-border h-12 focus-visible:ring-primary"
+                disabled={isLoading}
+              />
             </div>
-            <Button className="w-full h-12 bg-primary text-primary-foreground font-mono" size="lg">
-              .sign in
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" className="w-full h-12 bg-primary text-primary-foreground font-mono" size="lg" disabled={isLoading}>
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : ".sign in"}
             </Button>
           </form>
 

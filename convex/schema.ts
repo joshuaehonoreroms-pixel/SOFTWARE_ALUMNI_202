@@ -6,7 +6,6 @@ export default defineSchema({
     email: v.string(),
     firstName: v.string(),
     lastName: v.string(),
-    password: v.string(),
     role: v.union(v.literal("student"), v.literal("alumni"), v.literal("admin")),
     createdAt: v.number(),
   }),

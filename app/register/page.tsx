@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, CheckCircle2, Loader2, User, GraduationCap, Building, ShieldCheck } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useSignUp } from "@clerk/nextjs"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { isLoaded, signUp, setActive } = useSignUp()
   const createUser = useMutation(api.users.createUser)
   const [step, setStep] = React.useState(1)
   const [isLoading, setIsLoading] = React.useState(false)
@@ -24,6 +26,8 @@ export default function RegisterPage() {
     password: "",
   })
   const [error, setError] = React.useState<string | null>(null)
+  const [verifying, setVerifying] = React.useState(false)
+  const [code, setCode] = React.useState("")
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
@@ -35,6 +39,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isLoaded) return
     setError(null)
     setIsLoading(true)
 
@@ -43,30 +48,90 @@ export default function RegisterPage() {
         throw new Error("Please select a role")
       }
 
-      // Validate form fields
-      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-        throw new Error("All fields are required")
-      }
-
-      // Call Convex mutation to save user
-      await createUser({
+      // Start Clerk sign up
+      await signUp.create({
+        emailAddress: formData.email,
+        password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        role: role,
       })
 
-      console.log("[v0] User registered successfully")
-      // Redirect to dashboard after successful registration
-      router.push("/dashboard")
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Registration failed"
-      setError(message)
-      console.log("[v0] Registration error:", message)
+      // Send verification email
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
+
+      setVerifying(true)
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || "Registration failed")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isLoaded) return
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const completeSignUp = await signUp.attemptEmailAddressVerification({
+        code,
+      })
+
+      if (completeSignUp.status !== "complete") {
+        console.log(JSON.stringify(completeSignUp, null, 2))
+        throw new Error("Verification failed")
+      }
+
+      if (completeSignUp.status === "complete") {
+        await setActive({ session: completeSignUp.createdSessionId })
+
+        // Create user in Convex after Clerk success
+        await createUser({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          role: role as "student" | "alumni",
+          // We no longer store password in Convex
+        })
+
+        router.push("/dashboard")
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || "Verification failed")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (verifying) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <h1 className="text-3xl font-bold">Verify your email</h1>
+            <p className="text-muted-foreground mt-2">We've sent a code to {formData.email}</p>
+          </div>
+          <form onSubmit={handleVerify} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="code">Verification Code</Label>
+              <Input
+                id="code"
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                className="h-12 text-center text-2xl tracking-[1em]"
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" disabled={isLoading} className="w-full h-12 font-mono">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : ".verify"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -144,9 +209,8 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setRole("student")}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                      role === "student" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${role === "student" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                      }`}
                   >
                     <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
                       <GraduationCap className="w-6 h-6 text-primary" />
@@ -159,9 +223,8 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setRole("alumni")}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                      role === "alumni" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${role === "alumni" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                      }`}
                   >
                     <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
                       <Building className="w-6 h-6 text-primary" />

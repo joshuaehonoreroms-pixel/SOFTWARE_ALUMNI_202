@@ -9,7 +9,6 @@ export const createUser = mutation({
     firstName: v.string(),
     lastName: v.string(),
     email: v.string(),
-    password: v.string(),
     role: v.union(v.literal("student"), v.literal("alumni")),
   },
   handler: async (ctx, args) => {
@@ -20,9 +19,6 @@ export const createUser = mutation({
       lastName: args.lastName,
       role: args.role,
       createdAt: Date.now(),
-      // In production, hash the password using bcrypt
-      // For now, storing as-is (NOT RECOMMENDED for production)
-      password: args.password,
     })
     return userId
   },
